@@ -13,7 +13,14 @@
 # extension is only csv right now
 # EXAMPLE: sh25_DPM_sinalbin_231.csv
 
-# TODO: to use plotrix package
+# TODO: to use plotrix package. Install if has not yet and load if did not used
+# TODO: Figure out how to combine standards and lines
+
+# Load and install packages
+# Plotrix for graphs
+plot_package <- find.package ("plotrix", quiet = TRUE)
+if (nchar(plot_package) == 0) install.packages ("plotrix")
+require ('plotrix')
 
 
 draw_chromatogram <- function (x, y, title='', xlabel='', ylabel='', color='black', ...){
