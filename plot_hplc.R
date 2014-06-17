@@ -101,7 +101,7 @@ draw_chromatogram_with_ACN_gradient <- function (hplcX, hplcY, gradX, gradY,
     plot (hplcX, hplcY, type='l', main=title, xlab=xlab, ylab=ylab, 
           col='red', ylim=lylim, axes=FALSE, ...)
     axis (side=2, at=lytickpos, cex.axis=1)
-    if (nchar(xlab > 0)) axis (side=1)
+    if (!is.na(xlab)) axis (side=1)
     
     # Then add gradiend 
     lines (gradX, ry, type='l', col='grey30')
@@ -215,7 +215,7 @@ combine_data_and_plot <- function (sampleData, standardData,
       draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
                                           sampleData[[2]] * (sampleData[[2]]>0),
                                           hplc_method[[1]], hplc_method[[2]],
-                                          title=title, ylab="A, 229 nm")
+                                          title=title, ylab="A, 229 nm", xlab=NA)
   }
   else {
       draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0), 
