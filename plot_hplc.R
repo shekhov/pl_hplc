@@ -16,11 +16,46 @@
 # TODO: to use plotrix package. Install if has not yet and load if did not used
 # TODO: Figure out how to combine standards and lines
 
+
+# Set path to data. Replace all "\" to "/" before running!
+path_to_data <- "//Groups/mol-grp/Anton/Data/LC-UV from isotop"
+path_to_save <- "Z://LAB DATA/GLS/SH25. Beetles/plots/"
+experiment <- 'sh25'
+measurment_name <- 'DPM'
+output_format <- 'screen'
+
 # Load and install packages
 # Plotrix for graphs
 plot_package <- find.package ("plotrix", quiet = TRUE)
 if (nchar(plot_package) == 0) install.packages ("plotrix")
 require ('plotrix')
+
+analyze_working_folder <- function () {
+    # Create all logic vectors for function load_data
+    file_list <<- list.files (path=path_to_data)
+    file_table <<- strsplit (file_list, split='[_.]')
+    
+    is_experiment <<- sapply (X=file_table, FUN=function(x) {x[1]==experiment})
+    is_std <<- sapply (X=file_table, FUN=function(x) {x[2]=='std'})
+    is_hplc <<- sapply (X=file_table, FUN=function(x) {x[2]=='hplc'})
+    is_meas <<- sapply (X=file_table, FUN=function(x) {x[2]== measurment_name})
+    is_csv <<- sapply (X=file_table, FUN=function(x) {x[length(x)]=='csv'})
+    
+    if (!exists ('standard_names', where=1)) standard_names <<- vector()
+    if (!exists ('hplc_names', where=1)) hplc_names <<- vector()
+    if (!exists ('hplc_std', where=1)) hplc_std <<- vector()
+    if (!exists ('meas_names', where=1)) meas_names <<- vector()  
+    if (!exists ('single_plots', where=1)) single_plots <<- vector() 
+}
+
+start <- function () {
+    # This function will start to work interactively with user
+    # NOT COMPLETED
+    print ('Welcome! We will do all by ourself')
+    analyze_working_folder()
+    load_data(FALSE)
+    draw_data (output_format)
+}
 
 
 draw_chromatogram <- function (x, y, title='', xlabel='', ylabel='', color='black', ...){
@@ -43,10 +78,10 @@ create_gap <- function (dm) {
   this_max <- max (dm)
   this_max_id <- which.max (dm)
   maxes <- this_max
-  #maxes <- append (vector(), mx)
   new_vector <- dm[-this_max_id]
   gaps <- 0
   
+  # Creating vectors with maximums and gaps values
   while (this_max > this_mean*5) {
     next_max <- max (new_vector)
     next_max_id <- which.max (new_vector)
@@ -60,7 +95,7 @@ create_gap <- function (dm) {
   }
   
   max_gap <- max(gaps)
-  if (max_gap < 200) return (FALSE) # We don't need short gaps
+  if (max(dm) < 200) return (FALSE) # We don't need gaps with bars lower then 200
   
   max_id <- which.max (gaps)
   
@@ -74,7 +109,7 @@ create_gap <- function (dm) {
   }
   #print (maxes)
   #print (gaps)
-  c (min_gap+10, maxes[max_id-1]-20)
+  c (min_gap+10, maxes[max_id-1]-40)
 }
 
 create_y_tics <- function (maxN, gaps) {
@@ -96,17 +131,17 @@ draw_bars <- function (dataMatrix, with_errors=FALSE, width_error_bars=1.0,
   maxM <- max (dataMatrix[,1])
   gaps <- create_gap (dataMatrix[,1])
  
-  if (gaps[1]){  
-    yt <- create_y_tics(maxM, gaps)
-    gap.barplot (y=dataMatrix[,1], gap=gaps,
-                 col=colors, xaxt='n',
-                 ytics=c(0, 100, 200, yt), las=1)
-  }
-  else {
-    barplot (dataMatrix[,1], 
-                 col=colors, xaxt='n',
-                 ylim=c(0,200), las=1)   
-  }
+    if (gaps[1]){  
+        yt <- create_y_tics(maxM, gaps)
+        gap.barplot (y=dataMatrix[,1], gap=gaps,
+                     col=colors, xaxt='n',
+                     ytics=c(0, 100, 200, yt), las=1)
+    }
+    else {
+        barplot (dataMatrix[,1], 
+                     col=colors, xaxt='n',
+                     ylim=c(0,200), las=1)   
+    }
 }
 
 combine_data_and_plot <- function (sampleData, standardData, 
@@ -142,7 +177,7 @@ combine_data_and_plot <- function (sampleData, standardData,
 
   # The chromatograms to compare with.
   par (mar=c(5, 4, 0.5, 0))
-  draw_chromatogram (stadardData[[1]], stadardData[[2]] * (stadardData[[2]]>0), 
+  draw_chromatogram (standardData[[1]], standardData[[2]] * (standardData[[2]]>0), 
                      #xlabel='Time, min',
                      ylabel='A, 229nm', 
                      color='blue',
@@ -156,48 +191,53 @@ combine_data_and_plot <- function (sampleData, standardData,
   par (mar=c(5, 4, 3, 1)) 
 }
 
-
-
 proceed_single_plot <- function (title, sampleData, fileType='screen'){
-  
-  if (fileType == 'png') {
-    png (file=paste (title, '.png', sep=''), width=6, height=4, units='in', res=400)   
-    draw_chromatogram (dataFrame=sampleData, title=title, 
-                       xlabel='time, min', ylabel='A, 229nm', col='blue') 
-    dev.off()
     
-  }
-  else if (fileType == 'pdf') {
-    pdf (file=paste (title, '.pdf', sep=''))
-    draw_chromatogram (dataFrame=sampleData, title=title, 
-                       xlabel='time, min', ylabel='A, 229nm', col='blue') 
-    dev.off()
+    path_to_file <- paste (path_to_save, title, '.', fileType, sep='')
     
-  }
-  
-  else {
-    draw_chromatogram (dataFrame=sampleData, title=title, 
-                       xlabel='time, min', ylabel='A, 229nm', col='blue')     
-  }
+    if (fileType == 'png') {
+        png (file=paste (title, '.png', sep=''), width=6, height=4, units='in', res=400)   
+        draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
+                           title=title, 
+                           xlabel='time, min', ylabel='A, 229nm', col='blue') 
+        dev.off()
+        
+      }
+    else if (fileType == 'pdf') {
+        pdf (file=paste (title, '.pdf', sep=''))
+        draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
+                           title=title, 
+                           xlabel='time, min', ylabel='A, 229nm', col='blue') 
+        dev.off()
+    
+    }
+    
+    else {
+        draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
+                           title=title, 
+                           xlabel='time, min', ylabel='A, 229nm', col='blue')     
+    }
 }
 
 # for each set of data will create two files, pdf and png
 proceed_plots <- function (title, sampleData, standardData, dataMatrix, fileType='screen'){
   # Create file with a name and extension was given. Draw into this file graphs
   # using function combine_data_and_plot
-  #turn_off <- FALSE
+    
+  path_to_file <- paste (path_to_save, title, '.', fileType, sep='')
   
   if (fileType == 'png') {
-    png (file=paste (title, '.png', sep=''), width=6, height=4, units='in', res=400)
+    png (file=path_to_file, width=6, height=4, units='in', res=400)
     combine_data_and_plot (sampleData, standardData, dataMatrix, title)   
     dev.off()
   }
   else if (fileType == 'pdf') {
-    pdf (file=paste (title, '.pdf', sep=''))
+    pdf (file=path_to_file)
     combine_data_and_plot (sampleData, standardData, dataMatrix, title)   
     dev.off()
   }
   else {
+      #print ("Combine to", standardData)
     combine_data_and_plot (sampleData, standardData, dataMatrix, title)   
   }
 }
@@ -300,8 +340,9 @@ draw_data <- function (to_format){
     title <- paste (strsplit(hplc_names[i], split='_')[[1]][-1], collapse=' ')
     #print (title)
     if (!is.na(hplc_and_meas[i])) {
-      #print (paste ("Draw three ", hplc_names[i], sep=' '))
-      proceed_plots(title=title, get(hplc_names[i], pos=1), get(hplc_std[i], pos=1),
+      #print (paste ("Draw standard ", hplc_std[i], sep=' '))
+      proceed_plots(title=title, 
+                    get(hplc_names[i], pos=1), get(hplc_std[i], pos=1),
                    get(meas_names[hplc_and_meas[i]], pos=1), fileType=to_format)
     }
     else {
@@ -319,9 +360,13 @@ draw_data <- function (to_format){
 }
 
 set_data_path <- function (path) {
-  # Replace the default path.
-  # Note that path should contane '/' not '\'
-  path_to_data <<- path
+    # Replace the default path.
+    # Note that path should contane '/' not '\'
+    path_to_data <<- path
+}
+
+set_save_path <- function (path) {
+    path_to_save <<- path
 }
 
 set_experiment_name <- function (new_name) {
@@ -342,36 +387,4 @@ set_output_format <- function (new_format) {
   output_format <- new_format
 }
 
-analyze_working_folder <- function () {
-  # Create all logic vectors for function load_data
-  file_list <<- list.files (path=path_to_data)
-  file_table <<- strsplit (file_list, split='[_.]')
-  
-  is_experiment <<- sapply (X=file_table, FUN=function(x) {x[1]==experiment})
-  is_std <<- sapply (X=file_table, FUN=function(x) {x[2]=='std'})
-  is_hplc <<- sapply (X=file_table, FUN=function(x) {x[2]=='hplc'})
-  is_meas <<- sapply (X=file_table, FUN=function(x) {x[2]== measurment_name})
-  is_csv <<- sapply (X=file_table, FUN=function(x) {x[length(x)]=='csv'})
-  
-  if (!exists ('standard_names', where=1)) standard_names <<- vector()
-  if (!exists ('hplc_names', where=1)) hplc_names <<- vector()
-  if (!exists ('hplc_std', where=1)) hplc_std <<- vector()
-  if (!exists ('meas_names', where=1)) meas_names <<- vector()  
-  if (!exists ('single_plots', where=1)) single_plots <<- vector() 
-}
-
-start <- function () {
-  # This function will start to work interactively with user
-  # NOT COMPLETED
-  print ('Welcome! We will do all by ourself')
-  analyze_working_folder()
-  load_data(FALSE)
-  draw_data (output_format)
-}
-
-# Set path to data. Replace all "\" to "/" before running!
-path_to_data <- "//Groups/mol-grp/Anton/Data/LC-UV from isotop"
-experiment <- 'sh25'
-measurment_name <- 'DPM'
-output_format <- 'screen'
 
