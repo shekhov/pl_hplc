@@ -23,6 +23,13 @@ path_to_save <- "Z://LAB DATA/GLS/SH25. Beetles/plots/"
 experiment <- 'sh25'
 measurment_name <- 'DPM'
 output_format <- 'screen'
+minimum_gap_start <- 200
+
+# This method for my samples. Replace by calling set_hplc_method function
+method_dvlong8 <- data.frame (time=c(0, 9, 17, 40, 54, 58, 58.10, 61.9, 62, 69), 
+                       acn=c(0.5, 0.5, 6, 10, 50, 70, 100, 100, 0.5, 0.5))
+hplc_method <- method_dvlong8
+use_gradient = TRUE # Set it to false and usual plots will be drown instead
 
 # Load and install packages
 # Plotrix for graphs
@@ -57,6 +64,52 @@ start <- function () {
     draw_data (output_format)
 }
 
+draw_chromatogram_with_ACN_gradient <- function (hplcX, hplcY, gradX, gradY, 
+                                                 title='', xlab='', ylab='',
+                                                 ...) {
+    # If specify, then we will draw another line on the plot and add
+    # scale on the right side. 
+    # This method is actually kind of twoord.plot, but for my needs
+    
+    ## Settings for left axis
+    # Look at the range of the y numbers
+    lylim <- range(hplcY, na.rm=TRUE)
+    lyspan <- diff(lylim)
+    if(lyspan == 0) lyspan <- lylim[1]    
+    # Increase the range a little bit to make sure its fit
+    lylim[2]<- lylim[2] + lyspan*0.04
+    if(lylim[1] != 0) lylim[1] <- lylim[1]-lyspan*0.04
+    # Make labels them look pretty :)
+    lytickpos <- pretty(hplcY)
+    
+    ## Settings for right axis
+    rylim <- range (gradY, na.rm=TRUE)
+    ryspan <- diff (rylim)
+    ymult <- diff(lylim) / diff(rylim)
+    # offset for the "right" y values
+    yoff <- lylim[1] - rylim[1] * ymult
+    #make labels looked good
+    rylabels <- pretty(rylim)    
+    axat <- rylabels * ymult + yoff
+    # Prepare ry to be resized
+    ry <- gradY * ymult + yoff
+    # Place of the label
+    rylab.at <- ymult + yoff
+
+    
+    # First, draw the hplc itself
+    plot (hplcX, hplcY, type='l', main=title, xlab=xlab, ylab=ylab, 
+          col='red', ylim=lylim, axes=FALSE, ...)
+    axis (side=2, at=lytickpos, cex.axis=1)
+    if (nchar(xlab > 0)) axis (side=1)
+    
+    # Then add gradiend 
+    lines (gradX, ry, type='l', col='grey30')
+    axis (side=4, at=axat, labels=rylabels, cex.axis=1,  line=-1.5)
+    mtext ("Acetonitrile, %", side=4, line=0.5)
+    #color.axis (side=4, at=axat, labels=rylabels, 
+    #           axlab="Acetonitrile, %")
+}
 
 draw_chromatogram <- function (x, y, title='', xlabel='', ylabel='', color='black', ...){
   # Draw a chromatogram based on dataFrame (time, signal)
@@ -71,8 +124,9 @@ draw_chromatogram <- function (x, y, title='', xlabel='', ylabel='', color='blac
 }
 
 create_gap <- function (dm) {
-  # Search for the biggest differences between numbers and suggest them
-  # to be cutted.
+    # Search for the biggest differences between numbers and suggest them
+    # to be cutted. If the maximum in the data set is not big enough it returns
+    # False
   result <- NA
   this_mean <- mean (dm)
   this_max <- max (dm)
@@ -95,17 +149,17 @@ create_gap <- function (dm) {
   }
   
   max_gap <- max(gaps)
-  if (max(dm) < 200) return (FALSE) # We don't need gaps with bars lower then 200
+  if (max(dm) < minimum_gap_start) return (FALSE) # We don't need gaps with bars lower then 200
   
   max_id <- which.max (gaps)
   
   # Check the first gap number. Should be more 200, wo we will have mostly
   # the same scale for bottom
-  if (maxes[max_id]>200) {
+  if (maxes[max_id]>minimum_gap_start) {
     min_gap <- maxes[max_id]
   }
   else {
-    min_gap <-   200
+    min_gap <- minimum_gap_start
   }
   #print (maxes)
   #print (gaps)
@@ -156,17 +210,25 @@ combine_data_and_plot <- function (sampleData, standardData,
   layout(matrix(1:3, ncol=1), heights=c(5,2,2))
   
   # The main chromatogram
-  par (mar=c(0, 4, 2, 0))
-  draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0), 
+  par (mar=c(0, 4, 2, 2))
+  if (use_gradient) {
+      draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
+                                          sampleData[[2]] * (sampleData[[2]]>0),
+                                          hplc_method[[1]], hplc_method[[2]],
+                                          title=title, ylab="A, 229 nm")
+  }
+  else {
+      draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0), 
                      title=title,
                      axes=FALSE,
                      xlabel='Time, min', 
                      ylabel='A, 229nm', 
                      color='red')
-  axis (side=2)
+    axis (side=2)
+  }
   
   # The measurments bars
-  par (mar=c(0, 4, 0, 0))
+  par (mar=c(0, 4, 0, 2))
   #plot (dpm_data[[2]], type='h', col='green', axes=FALSE)
   draw_bars (dataMatrix, 
              ylabel='Activity, DPM', 
@@ -176,7 +238,7 @@ combine_data_and_plot <- function (sampleData, standardData,
   #axis (side=2)
 
   # The chromatograms to compare with.
-  par (mar=c(5, 4, 0.5, 0))
+  par (mar=c(5, 4, 0.5, 2))
   draw_chromatogram (standardData[[1]], standardData[[2]] * (standardData[[2]]>0), 
                      #xlabel='Time, min',
                      ylabel='A, 229nm', 
@@ -188,7 +250,7 @@ combine_data_and_plot <- function (sampleData, standardData,
   
   # Reset layout options to default
   layout (matrix (1:1, ncol=1))
-  par (mar=c(5, 4, 3, 1)) 
+  par (mar=c(5, 4, 3, 2)) 
 }
 
 proceed_single_plot <- function (title, sampleData, fileType='screen'){
@@ -197,25 +259,50 @@ proceed_single_plot <- function (title, sampleData, fileType='screen'){
     
     if (fileType == 'png') {
         png (file=paste (title, '.png', sep=''), width=6, height=4, units='in', res=400)   
-        draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
+        if (use_gradient) {
+            draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
+                                                sampleData[[2]] * (sampleData[[2]]>0),
+                                                hplc_method[[1]], hplc_method[[2]],
+                                                title=title, ylab="A, 229 nm", xlab='time, min')
+            
+        }
+        else {
+            draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
                            title=title, 
                            xlabel='time, min', ylabel='A, 229nm', col='blue') 
+        }
         dev.off()
         
       }
     else if (fileType == 'pdf') {
         pdf (file=paste (title, '.pdf', sep=''))
-        draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
-                           title=title, 
-                           xlabel='time, min', ylabel='A, 229nm', col='blue') 
+        if (use_gradient) {
+            draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
+                                                sampleData[[2]] * (sampleData[[2]]>0),
+                                                hplc_method[[1]], hplc_method[[2]],
+                                                title=title, ylab="A, 229 nm", xlab='time, min')
+        }
+        else {
+            draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
+                               title=title, 
+                               xlabel='time, min', ylabel='A, 229nm', col='blue') 
+        }
         dev.off()
     
     }
     
     else {
-        draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
-                           title=title, 
-                           xlabel='time, min', ylabel='A, 229nm', col='blue')     
+        if (use_gradient) {
+            draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
+                                                sampleData[[2]] * (sampleData[[2]]>0),
+                                                hplc_method[[1]], hplc_method[[2]],
+                                                title=title, ylab="A, 229 nm", xlab='time, min')
+        }
+        else {
+            draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
+                               title=title, 
+                               xlabel='time, min', ylabel='A, 229nm', col='blue') 
+        }    
     }
 }
 
@@ -258,7 +345,7 @@ get_mean_and_sd_as_matrix <- function (measurments, expand_raws=FALSE, length_to
 
 
 # Load all data to environment
-load_data <- function (is_done = TRUE) {
+load_data <- function (to_workspace=TRUE) {
   # Scan folder for the file, and extract data to the workplace if they 
   # coresponds to the filters.
   
@@ -304,7 +391,7 @@ load_data <- function (is_done = TRUE) {
         single_plots <<- append (single_plots, this_name)
       }
           
-      if (!is_done) {
+      if (to_workspace) {
         # Load csv file into variable
         assign (this_name, pos=1, 
                 value=read.csv (file=paste (path_to_data, '/', file_list[[i]][1], sep=''),
@@ -338,15 +425,16 @@ draw_data <- function (to_format){
   # Otherwise, you have to make sure that all data filled correctly
   for (i in 1:length(hplc_and_meas)){
     title <- paste (strsplit(hplc_names[i], split='_')[[1]][-1], collapse=' ')
-    #print (title)
+    
     if (!is.na(hplc_and_meas[i])) {
-      #print (paste ("Draw standard ", hplc_std[i], sep=' '))
-      proceed_plots(title=title, 
-                    get(hplc_names[i], pos=1), get(hplc_std[i], pos=1),
-                   get(meas_names[hplc_and_meas[i]], pos=1), fileType=to_format)
+       # if (!is.na (std_together[hplc_std[i]])
+      proceed_plots (title=title, 
+                    get(hplc_names[i], pos=1), # Sample
+                    get(hplc_std[i], pos=1), # Standard
+                    get(meas_names[hplc_and_meas[i]], pos=1), # Measurments
+                    fileType=to_format)
     }
     else {
-      #print (paste ("Draw single ", hplc_names[i], sep=' '))
       # It is single plot
       proceed_single_plot (title=title, get(hplc_names[i], pos=1), fileType=to_format)
     }  
@@ -387,4 +475,8 @@ set_output_format <- function (new_format) {
   output_format <- new_format
 }
 
-
+set_hplc_method <- function (time, gradient) {
+    # If the hplc method is set, then all chromatogramm will be drawn with
+    # gradient
+    hplc_method <- data.frame (time, gradient)
+}
