@@ -253,80 +253,47 @@ combine_data_and_plot <- function (sampleData, standardData,
   par (mar=c(5, 4, 3, 2)) 
 }
 
+turn_on_device <- function (title, fileType) {
+    path_to_file <- paste (path_to_save, title, '.', fileType, sep='')
+    if (fileType == 'png') {
+        png (path_to_file, width=6, height=4, units='in', res=400)   
+        return (TRUE)
+    }
+    else if (fileType == 'pdf') {
+        pdf (path_to_file)
+        return (TRUE)
+    }
+    else return (FALSE)
+}
+
 proceed_single_plot <- function (title, sampleData, fileType='screen'){
     
     path_to_file <- paste (path_to_save, title, '.', fileType, sep='')
+    device_on <- turn_on_device (title, fileType)
     
-    if (fileType == 'png') {
-        png (file=paste (title, '.png', sep=''), width=6, height=4, units='in', res=400)   
-        if (use_gradient) {
-            draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
-                                                sampleData[[2]] * (sampleData[[2]]>0),
-                                                hplc_method[[1]], hplc_method[[2]],
-                                                title=title, ylab="A, 229 nm", xlab='time, min')
-            
-        }
-        else {
-            draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
+    if (use_gradient) {
+        draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
+                                            sampleData[[2]] * (sampleData[[2]]>0),
+                                            hplc_method[[1]], hplc_method[[2]],
+                                            title=title, ylab="A, 229 nm", xlab='time, min')
+        
+    }
+    else {
+        draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
                            title=title, 
                            xlabel='time, min', ylabel='A, 229nm', col='blue') 
-        }
-        dev.off()
-        
-      }
-    else if (fileType == 'pdf') {
-        pdf (file=paste (title, '.pdf', sep=''))
-        if (use_gradient) {
-            draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
-                                                sampleData[[2]] * (sampleData[[2]]>0),
-                                                hplc_method[[1]], hplc_method[[2]],
-                                                title=title, ylab="A, 229 nm", xlab='time, min')
-        }
-        else {
-            draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
-                               title=title, 
-                               xlabel='time, min', ylabel='A, 229nm', col='blue') 
-        }
-        dev.off()
-    
     }
     
-    else {
-        if (use_gradient) {
-            draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
-                                                sampleData[[2]] * (sampleData[[2]]>0),
-                                                hplc_method[[1]], hplc_method[[2]],
-                                                title=title, ylab="A, 229 nm", xlab='time, min')
-        }
-        else {
-            draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
-                               title=title, 
-                               xlabel='time, min', ylabel='A, 229nm', col='blue') 
-        }    
-    }
+    if (device_on) dev.off()
 }
 
 # for each set of data will create two files, pdf and png
 proceed_plots <- function (title, sampleData, standardData, dataMatrix, fileType='screen'){
   # Create file with a name and extension was given. Draw into this file graphs
   # using function combine_data_and_plot
-    
-  path_to_file <- paste (path_to_save, title, '.', fileType, sep='')
-  
-  if (fileType == 'png') {
-    png (file=path_to_file, width=6, height=4, units='in', res=400)
-    combine_data_and_plot (sampleData, standardData, dataMatrix, title)   
-    dev.off()
-  }
-  else if (fileType == 'pdf') {
-    pdf (file=path_to_file)
-    combine_data_and_plot (sampleData, standardData, dataMatrix, title)   
-    dev.off()
-  }
-  else {
-      #print ("Combine to", standardData)
-    combine_data_and_plot (sampleData, standardData, dataMatrix, title)   
-  }
+  device_on <- turn_on_device (title, fileType)  
+  combine_data_and_plot (sampleData, standardData, dataMatrix, title)   
+  if (device_on) dev.off()
 }
 
 get_mean_and_sd_as_matrix <- function (measurments, expand_raws=FALSE, length_to_expand=0){
