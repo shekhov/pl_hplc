@@ -24,12 +24,21 @@ experiment <- 'sh25'
 measurment_name <- 'DPM'
 output_format <- 'screen'
 minimum_gap_start <- 200
+my_colors <- c('red', 'green', 'blue', 'grey', 'black')
 
 # This method for my samples. Replace by calling set_hplc_method function
 method_dvlong8 <- data.frame (time=c(0, 9, 17, 40, 54, 58, 58.10, 61.9, 62, 69), 
                        acn=c(0.5, 0.5, 6, 10, 50, 70, 100, 100, 0.5, 0.5))
 hplc_method <- method_dvlong8
 use_gradient = TRUE # Set it to false and usual plots will be drown instead
+
+# If we have standards that should be plot together, then we will use this list
+related_std <- list()
+related_std$std_4msob <- c('std_4mtb')
+related_std$std_sinalbin <- c('std_allyl-ITC', 'std_allyl-cyanide')
+related_std$std_sinigrin <- c('std_P-OH-Benzyle-cyanide')
+# And this flag as well
+use_related_std = TRUE
 
 # Load and install packages
 # Plotrix for graphs
@@ -62,6 +71,41 @@ start <- function () {
     analyze_working_folder()
     load_data(FALSE)
     draw_data (output_format)
+}
+
+draw_related_standards <- function (std_name, xlab='time, min', ylab='A, 229nm') {
+    mx <- get (std_name, pos=1)[[1]]
+    my <- get (std_name, pos=1)[[3]]
+    
+    real_y <- get (std_name, pos=1)[[2]]
+    real_y <- real_y * (real_y >0)
+    
+    ## Settings for left axis
+    # Look at the range of the y numbers
+    ry <- range(real_y, na.rm=TRUE)
+    lyspan <- diff(ry)
+    rylim <- range (my, na.rm=TRUE)
+    ryspan <- diff (rylim)
+    ymult <- diff(ry) / diff(rylim)
+    axat <- pretty(rylim) 
+    y_labels <- round (axat * ymult, digits=-1)
+
+    plot (mx, my, col=my_colors[1], type='l', axes=FALSE, xlab=xlab, ylab=ylab)
+    axis (side=1)
+    axis (side=2, at=axat, labels=y_labels, las=1)
+    
+    len <- length(related_std[[std_name]])
+    for (i in 1:len){
+        x <- get (related_std[[std_name]][[i]], pos=1)[[1]]
+        y <- get (related_std[[std_name]][[i]], pos=1)[[3]]
+        lines (x, y, col=my_colors[i+1])
+    }
+    names <- c (std_name, related_std[[std_name]])
+    names <- sapply (names, FUN=function (x) {strsplit(x, split='_')[[1]][-1]}, 
+                     simplify=TRUE)
+    legend ("topright", title="Standards", 
+            legend=names, cex=1,
+            fill=my_colors[1:(len+1)])
 }
 
 draw_chromatogram_with_ACN_gradient <- function (hplcX, hplcY, gradX, gradY, 
@@ -100,13 +144,13 @@ draw_chromatogram_with_ACN_gradient <- function (hplcX, hplcY, gradX, gradY,
     # First, draw the hplc itself
     plot (hplcX, hplcY, type='l', main=title, xlab=xlab, ylab=ylab, 
           col='red', ylim=lylim, axes=FALSE, ...)
-    axis (side=2, at=lytickpos, cex.axis=1)
+    axis (side=2, at=lytickpos, cex.axis=1, las=1)
     if (!is.na(xlab)) axis (side=1)
     
     # Then add gradiend 
     lines (gradX, ry, type='l', col='grey')
-    axis (side=4, at=axat, labels=rylabels, cex.axis=1,  line=-1.5)
-    mtext ("Acetonitrile, %", side=4, line=0.5)
+    axis (side=4, at=axat, labels=rylabels, cex.axis=1,  line=-1.5, las=1)
+    mtext ("Acetonitrile, %", side=4, line=0.5, cex=0.8)
     #color.axis (side=4, at=axat, labels=rylabels, 
     #           axlab="Acetonitrile, %")
 }
@@ -117,10 +161,11 @@ draw_chromatogram <- function (x, y, title='', xlabel='', ylabel='', color='blac
   plot (x, y,
         type='l',
         main = title,
-        col=color,
+        col=color,        
         #axes=FALSE,
         ylab=ylabel,
-        xlab=xlabel, ...)  
+        xlab=xlabel, 
+        ...)  
 }
 
 create_gap <- function (dm) {
@@ -192,13 +237,13 @@ draw_bars <- function (dataMatrix, with_errors=FALSE, width_error_bars=1.0,
         yt <- create_y_tics(maxM, gaps)
         gap.barplot (y=dataMatrix[,1], gap=gaps,
                      col=colors, xaxt='n',
-                     ytics=c(0, 100, 200, yt), las=1)
+                     ytics=c(0, 100, 200, yt), las=1, ylab=ylabel)
     }
     else {
         ylim <- c(0, maxM)
         if (ylim[2] < 200) ylim[2] = 200
         barplot (dataMatrix[,1], 
-                     col=colors, xaxt='n',
+                     col=colors, xaxt='n', ylab=ylabel,
                      ylim=ylim, las=1)   
     }
 }
@@ -212,7 +257,7 @@ combine_data_and_plot <- function (sampleData, standardData,
   #   - dataMatrix: The n:2 matrix, where first column is a means of measurmens and 
   #       second column is standard deviation of this measurmens
   #   - title, the characters will be on the top of the plot
-  layout(matrix(1:3, ncol=1), heights=c(5,2,2))
+  layout(matrix(1:3, ncol=1), heights=c(5,2,3))
   
   # The main chromatogram
   par (mar=c(0, 4, 2, 2))
@@ -244,14 +289,19 @@ combine_data_and_plot <- function (sampleData, standardData,
 
   # The chromatograms to compare with.
   par (mar=c(5, 4, 0.5, 2))
-  draw_chromatogram (standardData[[1]], standardData[[2]] * (standardData[[2]]>0), 
-                     #xlabel='Time, min',
-                     ylabel='A, 229nm', 
-                     color='blue',
-                     axes=FALSE,
-                     xlab='Time, min')
-  axis (side=2)
-  axis (side=1)
+  if (use_related_std) {
+      draw_related_standards (standardData$name[1])
+  }
+  else {
+      draw_chromatogram (standardData[[1]], standardData[[2]] * (standardData[[2]]>0), 
+                         #xlabel='Time, min',
+                         ylabel='A, 229nm', 
+                         color='blue',
+                         axes=FALSE,
+                         xlab='Time, min')
+      axis (side=2, las=1)
+      axis (side=1)
+  }
   
   # Reset layout options to default
   layout (matrix (1:1, ncol=1))
@@ -261,7 +311,7 @@ combine_data_and_plot <- function (sampleData, standardData,
 turn_on_device <- function (title, fileType) {
     path_to_file <- paste (path_to_save, title, '.', fileType, sep='')
     if (fileType == 'png') {
-        png (path_to_file, width=6, height=4, units='in', res=400)   
+        png (path_to_file, width=7, height=7, units='in', res=400)   
         return (TRUE)
     }
     else if (fileType == 'pdf') {
@@ -316,7 +366,7 @@ get_mean_and_sd_as_matrix <- function (measurments, expand_raws=FALSE, length_to
 }
 
 
-# Load all data to environment
+# Load all data from folder to environment
 load_data <- function (to_workspace=TRUE) {
   # Scan folder for the file, and extract data to the workplace if they 
   # coresponds to the filters.
@@ -374,7 +424,8 @@ load_data <- function (to_workspace=TRUE) {
         # like hplc (because is_hplc works only for those with names hplc)
         if (!is_meas[i] & is_csv[i]){
             temp <- get (this_name, pos=1)
-            temp$perc <- temp[,2] / max(temp[,2])
+            temp$perc <- (temp[,2] / max(temp[,2])) * (temp[,2] > 0)
+            temp$name <- this_name
             assign (this_name, pos=1, temp)        
         }
         
@@ -390,7 +441,6 @@ load_data <- function (to_workspace=TRUE) {
   hplc_and_meas <<- match (to_find, meas_names)
 }
 
-#load_data (TRUE)
 draw_data <- function (to_format=output_format){  
   # Call this function if you sure that load_data worked ok and load all 
   # variables and tables from the folder
