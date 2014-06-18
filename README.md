@@ -24,3 +24,4 @@ where:
 
 There are some flags used in the script that can change the way of plotting. Here some of them:
 * use_gradient. When chromatogram for data is plotting, with this flag it will plot gradient of acetonitrile (I will let to change this name as well). But you need to make sure that *hplc_method* is also set (you can use **set_hplc_method (time, gradient)** to do so).
+* use_related_std. This flag should be used, when you want draw few chromatograms in the bottom of image. In this case variable *related_std* should be set as well. It is a list, in which column names correspond to the main standard, and variables are the other standards you want to plot together. Note, that names should be called like variables in the workspace

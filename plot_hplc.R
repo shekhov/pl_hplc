@@ -104,7 +104,7 @@ draw_chromatogram_with_ACN_gradient <- function (hplcX, hplcY, gradX, gradY,
     if (!is.na(xlab)) axis (side=1)
     
     # Then add gradiend 
-    lines (gradX, ry, type='l', col='grey30')
+    lines (gradX, ry, type='l', col='grey')
     axis (side=4, at=axat, labels=rylabels, cex.axis=1,  line=-1.5)
     mtext ("Acetonitrile, %", side=4, line=0.5)
     #color.axis (side=4, at=axat, labels=rylabels, 
@@ -149,7 +149,12 @@ create_gap <- function (dm) {
   }
   
   max_gap <- max(gaps)
-  if (max(dm) < minimum_gap_start) return (FALSE) # We don't need gaps with bars lower then 200
+  
+  too_low <- max(dm) < minimum_gap_start
+  too_small <- max_gap < max(dm)*0.1
+  near_minimum <- max(dm) < minimum_gap_start + minimum_gap_start*0.5
+
+  if (too_low | too_small | near_minimum) return (FALSE) # We don't need gaps with bars lower then 200
   
   max_id <- which.max (gaps)
   
@@ -161,8 +166,6 @@ create_gap <- function (dm) {
   else {
     min_gap <- minimum_gap_start
   }
-  #print (maxes)
-  #print (gaps)
   c (min_gap+10, maxes[max_id-1]-40)
 }
 
@@ -170,7 +173,7 @@ create_y_tics <- function (maxN, gaps) {
   # Select which tics is better to draw
   yt <- c(0, 0)
   if (maxN - gaps[2] > 100) {
-    yt[2] <- round (gaps[2]+10, -1)
+    yt[2] <- round (gaps[2]+30, -1)
   }
   
   if (gaps[1] - 200 > 100) yt[1] <- round (gaps[1]-50, -1)
@@ -192,9 +195,11 @@ draw_bars <- function (dataMatrix, with_errors=FALSE, width_error_bars=1.0,
                      ytics=c(0, 100, 200, yt), las=1)
     }
     else {
+        ylim <- c(0, maxM)
+        if (ylim[2] < 200) ylim[2] = 200
         barplot (dataMatrix[,1], 
                      col=colors, xaxt='n',
-                     ylim=c(0,200), las=1)   
+                     ylim=ylim, las=1)   
     }
 }
 
@@ -386,7 +391,7 @@ load_data <- function (to_workspace=TRUE) {
 }
 
 #load_data (TRUE)
-draw_data <- function (to_format){  
+draw_data <- function (to_format=output_format){  
   # Call this function if you sure that load_data worked ok and load all 
   # variables and tables from the folder
   # Otherwise, you have to make sure that all data filled correctly
