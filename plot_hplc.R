@@ -22,6 +22,7 @@ path_to_data <- "//Groups/mol-grp/Anton/Data/LC-UV from isotop"
 path_to_save <- "Z://LAB DATA/GLS/SH25. Beetles/plots/"
 experiment <- 'sh25'
 measurment_name <- 'DPM'
+this_method_time <- 69 # Set this to adjust hplc and measurments on graph
 output_format <- 'screen'
 minimum_gap_start <- 200
 my_colors <- c('red', 'green', 'blue', 'grey', 'black')
@@ -35,10 +36,12 @@ use_gradient = TRUE # Set it to false and usual plots will be drown instead
 # If we have standards that should be plot together, then we will use this list
 related_std <- list()
 related_std$std_4msob <- c('std_4mtb')
-related_std$std_sinalbin <- c('std_allyl-ITC', 'std_allyl-cyanide')
-related_std$std_sinigrin <- c('std_P-OH-Benzyle-cyanide')
+related_std$std_sinalbin <- c('std_P-OH-Benzyle-cyanide')
+related_std$std_sinigrin <- c('std_allyl-ITC', 'std_allyl-cyanide')
 # And this flag as well
 use_related_std = TRUE
+# Flag for plotting error on the bars
+with_error_bars = FALSE
 
 # Load and install packages
 # Plotrix for graphs
@@ -69,8 +72,8 @@ start <- function () {
     # NOT COMPLETED
     print ('Welcome! We will do all by ourself')
     analyze_working_folder()
-    load_data(FALSE)
-    draw_data (output_format)
+    load_data()
+    draw_data ()
 }
 
 draw_related_standards <- function (combined_data, names='', xlab='time, min', ylab='A, 229nm') {
@@ -79,8 +82,6 @@ draw_related_standards <- function (combined_data, names='', xlab='time, min', y
     # element has two rows (one for time, another for measurment)
     
     # Getting percentage and real meas data
-    print (length (combined_data[[1]]))
-    print (length (combined_data[[2]]))
     mx <- combined_data[[1]]
     real_y <- combined_data[[2]] * (combined_data[[2]] > 0) # Only positive numbers
     my <- real_y / max (real_y)
@@ -157,8 +158,6 @@ draw_chromatogram_with_ACN_gradient <- function (hplcX, hplcY, gradX, gradY,
     lines (gradX, ry, type='l', col='grey')
     axis (side=4, at=axat, labels=rylabels, cex.axis=1,  line=-1.5, las=1)
     mtext ("Acetonitrile, %", side=4, line=0.5, cex=0.8)
-    #color.axis (side=4, at=axat, labels=rylabels, 
-    #           axlab="Acetonitrile, %")
 }
 
 draw_chromatogram <- function (x, y, title='', xlabel='', ylabel='', color='black', ...){
@@ -231,12 +230,12 @@ create_y_tics <- function (maxN, gaps) {
   return (c(yt, round(maxN, -1)))
 }
 
-draw_bars <- function (dataMatrix, with_errors=FALSE, width_error_bars=1.0,
+draw_bars <- function (dataMatrix, with_errors=FALSE, width_error_bars=0.5,
                        title='', xlabel='', ylabel='', color='green') {
   
   colors <- rep (color, length (dataMatrix[,1]))
   
-  maxM <- max (dataMatrix[,1])
+  maxM <- max (dataMatrix[,1]) #+ max (dataMatrix[,3])
   gaps <- create_gap (dataMatrix[,1])
  
     if (gaps[1]){  
@@ -244,12 +243,16 @@ draw_bars <- function (dataMatrix, with_errors=FALSE, width_error_bars=1.0,
         gap.barplot (y=dataMatrix[,1], gap=gaps,
                      col=colors, xaxt='n',
                      ytics=c(0, 100, 200, yt), las=1, ylab=ylabel)
+        if (with_errors) {
+            dispersion (x=1:this_method_time, y=dataMatrix[,1], 
+                        ulim=dataMatrix[,1] + dataMatrix[,3])
+        }
     }
     else {
         ylim <- c(0, maxM)
         if (ylim[2] < 200) ylim[2] = 200
         barplot (dataMatrix[,1], 
-                     col=colors, xaxt='n', ylab=ylabel,
+                     col=colors, xaxt='n', ylab=ylabel, arrow.cap=width_error_bars,
                      ylim=ylim, las=1)   
     }
 }
@@ -288,7 +291,7 @@ combine_data_and_plot <- function (sampleData, standardData,
   #plot (dpm_data[[2]], type='h', col='green', axes=FALSE)
   draw_bars (dataMatrix, 
              ylabel='Activity, DPM', 
-             with_errors = FALSE,  # Some errors occures while calculating std dev
+             with_errors = with_error_bars,  # Some errors occures while calculating std dev
              width_error_bars=0.2, # Still does not working 
              color='green')
   #axis (side=2)
@@ -373,15 +376,20 @@ proceed_plots <- function (title, sampleData, standardData, dataMatrix, fileType
   if (device_on) dev.off()
 }
 
-get_mean_and_sd_as_matrix <- function (measurments, expand_raws=FALSE, length_to_expand=0){
+apply_statistic <- function (measurments, expand_raws=FALSE, length_to_expand=0){
   # Returns new matrix with first column as mean and second column as standard deviation
   # If we will need to expand the vector (so it will fit the chromatogram dimensions) the expand_raws 
   # should be set on TRUE and the total number of rows should be determine
   average <- apply (X=measurments, MARGIN=1, FUN=function(x) { mean (x, na.rm=TRUE)})
   std_dev <- apply (X=measurments, MARGIN=1, FUN=function(x) { sd (x, na.rm=TRUE)})
-  new_data <- cbind (average, std_dev)
+
+  error <- qnorm (0.975) * std_dev/sqrt(length(std_dev)) # Normal Distribution
+
+  new_data <- cbind (average, std_dev, error)
+  ncol <- dim (new_data)[2]
+  
   if (expand_raws) {
-    expand_matrix <- matrix (data=0, nrow=length_to_expand - dim(new_data)[1], ncol=2)
+    expand_matrix <- matrix (data=0, nrow=length_to_expand - dim(new_data)[1], ncol=ncol)
     new_data <- rbind (new_data, expand_matrix)
   }
   return (new_data)
@@ -441,21 +449,11 @@ load_data <- function (to_workspace=TRUE) {
                 value=read.csv (file=paste (path_to_data, '/', file_list[[i]][1], sep=''),
                                              header=FALSE, sep=sep_this, dec='.'))
         
-        # DEPRICATED
-        # For HPLC also create percentage for each measurment (UV)
-        # so it can be drawn together. We treat all samples (with csv) that not measurments
-        # like hplc (because is_hplc works only for those with names hplc)
-        #if (!is_meas[i] & is_csv[i]){
-        #    temp <- get (this_name, pos=1)
-        #    temp$perc <- (temp[,2] / max(temp[,2])) * (temp[,2] > 0)
-        #   temp$name <- this_name
-        #    assign (this_name, pos=1, temp)        
-        #}
-        
         # For measurments merge data to mean and std columns
         if (is_meas[i]){
           assign (this_name, pos=1,
-                  get_mean_and_sd_as_matrix (get(this_name), expand_raws=TRUE, length_to_expand=69))
+                  apply_statistic (get(this_name), expand_raws=TRUE, 
+                                             length_to_expand=this_method_time))
         }
       }
     }
