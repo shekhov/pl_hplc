@@ -73,12 +73,17 @@ start <- function () {
     draw_data (output_format)
 }
 
-draw_related_standards <- function (std_name, xlab='time, min', ylab='A, 229nm') {
-    mx <- get (std_name, pos=1)[[1]]
-    my <- get (std_name, pos=1)[[3]]
+draw_related_standards <- function (combined_data, names='', xlab='time, min', ylab='A, 229nm') {
+    # For all data.frames in the combined data we will plot a line. 
+    # combined data is a list with elements we want to draw. Each 
+    # element has two rows (one for time, another for measurment)
     
-    real_y <- get (std_name, pos=1)[[2]]
-    real_y <- real_y * (real_y >0)
+    # Getting percentage and real meas data
+    print (length (combined_data[[1]]))
+    print (length (combined_data[[2]]))
+    mx <- combined_data[[1]]
+    real_y <- combined_data[[2]] * (combined_data[[2]] > 0) # Only positive numbers
+    my <- real_y / max (real_y)
     
     ## Settings for left axis
     # Look at the range of the y numbers
@@ -94,15 +99,16 @@ draw_related_standards <- function (std_name, xlab='time, min', ylab='A, 229nm')
     axis (side=1)
     axis (side=2, at=axat, labels=y_labels, las=1)
     
-    len <- length(related_std[[std_name]])
-    for (i in 1:len){
-        x <- get (related_std[[std_name]][[i]], pos=1)[[1]]
-        y <- get (related_std[[std_name]][[i]], pos=1)[[3]]
-        lines (x, y, col=my_colors[i+1])
+    len <- length(combined_data)
+    color_id <- 2
+    for (i in seq (3, len, 2)){
+        x <- combined_data[[i]]
+        y <- combined_data[[i+1]] * (combined_data[[i+1]] > 0)
+        y <- y / max (y)
+        lines (x, y, col=my_colors[color_id])
+        color_id <- color_id + 1
     }
-    names <- c (std_name, related_std[[std_name]])
-    names <- sapply (names, FUN=function (x) {strsplit(x, split='_')[[1]][-1]}, 
-                     simplify=TRUE)
+    
     legend ("topright", title="Standards", 
             legend=names, cex=1,
             fill=my_colors[1:(len+1)])
@@ -290,7 +296,23 @@ combine_data_and_plot <- function (sampleData, standardData,
   # The chromatograms to compare with.
   par (mar=c(5, 4, 0.5, 2))
   if (use_related_std) {
-      draw_related_standards (standardData$name[1])
+      # What names will be used for this set
+      std_name <- deparse(substitute(standardData))
+      names <- c (std_name, related_std[[std_name]])
+      # Creating dataset to draw
+      data_pass <- c (standardData)
+      for (i in 1:length (related_std[[std_name]])) {
+          this_name <- related_std[[std_name]][[i]]
+          data_pass <- c(data_pass, get (this_name, pos=1))
+      }
+      
+      # Cut of std_ from names
+      names <- sapply (names, FUN=function (x) {strsplit(x, split='_')[[1]][-1]}, 
+                       simplify=TRUE)
+      
+      
+      
+      draw_related_standards (data_pass, names)
   }
   else {
       draw_chromatogram (standardData[[1]], standardData[[2]] * (standardData[[2]]>0), 
@@ -419,15 +441,16 @@ load_data <- function (to_workspace=TRUE) {
                 value=read.csv (file=paste (path_to_data, '/', file_list[[i]][1], sep=''),
                                              header=FALSE, sep=sep_this, dec='.'))
         
+        # DEPRICATED
         # For HPLC also create percentage for each measurment (UV)
         # so it can be drawn together. We treat all samples (with csv) that not measurments
         # like hplc (because is_hplc works only for those with names hplc)
-        if (!is_meas[i] & is_csv[i]){
-            temp <- get (this_name, pos=1)
-            temp$perc <- (temp[,2] / max(temp[,2])) * (temp[,2] > 0)
-            temp$name <- this_name
-            assign (this_name, pos=1, temp)        
-        }
+        #if (!is_meas[i] & is_csv[i]){
+        #    temp <- get (this_name, pos=1)
+        #    temp$perc <- (temp[,2] / max(temp[,2])) * (temp[,2] > 0)
+        #   temp$name <- this_name
+        #    assign (this_name, pos=1, temp)        
+        #}
         
         # For measurments merge data to mean and std columns
         if (is_meas[i]){
