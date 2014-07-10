@@ -18,9 +18,9 @@
 
 
 # Set path to data. Replace all "\" to "/" before running!
-path_to_data <- "//Groups/mol-grp/Anton/Data/LC-UV from isotop"
-path_to_save <- "Z://LAB DATA/GLS/SH25. Beetles/plots/"
-experiment <- 'sh25'
+path_to_data <- "//Groups/mol-grp/Anton/Data/sh29 data"
+path_to_save <- "Z://LAB DATA/GLS/SH29. CF7/plots/"
+experiment <- 'sh29'
 measurment_name <- 'DPM'
 this_method_time <- 69 # Set this to adjust hplc and measurments on graph
 output_format <- 'screen'
@@ -252,12 +252,12 @@ draw_bars <- function (dataMatrix, with_errors=FALSE, width_error_bars=0.5,
         ylim <- c(0, maxM)
         if (ylim[2] < 200) ylim[2] = 200
         barplot (dataMatrix[,1], 
-                     col=colors, xaxt='n', ylab=ylabel, arrow.cap=width_error_bars,
+                     col=colors, xaxt='n', ylab=ylabel, #arrow.cap=width_error_bars,
                      ylim=ylim, las=1)   
     }
 }
 
-combine_data_and_plot <- function (sampleData, standardData, 
+combine_data_and_plot <- function (sampleData, standardDataName, 
                                    dataMatrix, title = "", ...) {
   # Will first plot the data into one image
   # Args:
@@ -298,14 +298,17 @@ combine_data_and_plot <- function (sampleData, standardData,
 
   # The chromatograms to compare with.
   par (mar=c(5, 4, 0.5, 2))
+  standardData <- get (standardDataName, pos=1)
   if (use_related_std) {
       # What names will be used for this set
-      std_name <- deparse(substitute(standardData))
+      std_name <- standardDataName#deparse(substitute(standardData, env=.GlobalEnv))
       names <- c (std_name, related_std[[std_name]])
+      #print (std_name)
       # Creating dataset to draw
       data_pass <- c (standardData)
       for (i in 1:length (related_std[[std_name]])) {
           this_name <- related_std[[std_name]][[i]]
+          #print (this_name)
           data_pass <- c(data_pass, get (this_name, pos=1))
       }
       
@@ -368,11 +371,12 @@ proceed_single_plot <- function (title, sampleData, fileType='screen'){
 }
 
 # for each set of data will create two files, pdf and png
-proceed_plots <- function (title, sampleData, standardData, dataMatrix, fileType='screen'){
+proceed_plots <- function (title, sampleData, standardDataName, dataMatrix, fileType='screen'){
   # Create file with a name and extension was given. Draw into this file graphs
   # using function combine_data_and_plot
   device_on <- turn_on_device (title, fileType)  
-  combine_data_and_plot (sampleData, standardData, dataMatrix, title)   
+  #print (deparse(substitute(standardData)))
+  combine_data_and_plot (sampleData, standardDataName, dataMatrix, title)   
   if (device_on) dev.off()
 }
 
@@ -433,6 +437,7 @@ load_data <- function (to_workspace=TRUE) {
           sep_this <- ';'
         }
         
+            
         else next # Skip this undefiend sample
       }
       
@@ -452,7 +457,7 @@ load_data <- function (to_workspace=TRUE) {
         # For measurments merge data to mean and std columns
         if (is_meas[i]){
           assign (this_name, pos=1,
-                  apply_statistic (get(this_name), expand_raws=TRUE, 
+                  apply_statistic (get(this_name, pos=1), expand_raws=TRUE, 
                                              length_to_expand=this_method_time))
         }
       }
@@ -466,28 +471,32 @@ draw_data <- function (to_format=output_format){
   # Call this function if you sure that load_data worked ok and load all 
   # variables and tables from the folder
   # Otherwise, you have to make sure that all data filled correctly
-  for (i in 1:length(hplc_and_meas)){
-    title <- paste (strsplit(hplc_names[i], split='_')[[1]][-1], collapse=' ')
-    
-    if (!is.na(hplc_and_meas[i])) {
-       # if (!is.na (std_together[hplc_std[i]])
-      proceed_plots (title=title, 
-                    get(hplc_names[i], pos=1), # Sample
-                    get(hplc_std[i], pos=1), # Standard
-                    get(meas_names[hplc_and_meas[i]], pos=1), # Measurments
-                    fileType=to_format)
+    if (length(hplc_and_meas > 0)) {
+      for (i in 1:length(hplc_and_meas)){
+        title <- paste (strsplit(hplc_names[i], split='_')[[1]][-1], collapse=' ')
+        
+        if (!is.na(hplc_and_meas[i])) {
+           # if (!is.na (std_together[hplc_std[i]])
+          proceed_plots (title=title, 
+                        get(hplc_names[i], pos=1), # Sample
+                        #get(hplc_std[i], pos=1), # Standard
+                        hplc_std[i],
+                        get(meas_names[hplc_and_meas[i]], pos=1), # Measurments
+                        fileType=to_format)
+        }
+        else {
+          # It is single plot
+          proceed_single_plot (title=title, get(hplc_names[i], pos=1), fileType=to_format)
+        }  
+        
+        }
     }
-    else {
-      # It is single plot
-      proceed_single_plot (title=title, get(hplc_names[i], pos=1), fileType=to_format)
-    }  
-   
-  }
-  for (i in 1:length(single_plots)){
-    title <- paste (strsplit(single_plots[i], split='_')[[1]], collapse=' ')
-    proceed_single_plot (title=title, get(single_plots[i], pos=1), fileType=to_format)
-  }
-  
+    if (length (single_plots) > 0) {
+      for (i in 1:length(single_plots)){
+        title <- paste (strsplit(single_plots[i], split='_')[[1]], collapse=' ')
+        proceed_single_plot (title=title, get(single_plots[i], pos=1), fileType=to_format)
+      }
+    }
 }
 
 set_data_path <- function (path) {
