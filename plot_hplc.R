@@ -13,18 +13,20 @@
 # extension is only csv right now
 # EXAMPLE: sh25_DPM_sinalbin_231.csv
 
-# TODO: to use plotrix package. Install if has not yet and load if did not used
-# TODO: Figure out how to combine standards and lines
+# TODO: DONE! to use plotrix package. Install if has not yet and load if did not used
+# TODO: DONE! Figure out how to combine standards and lines
+# TODO: Separate modules for diferent files. Draw, data analyzis and settings at least should be
+# separated
 
 
 # Set path to data. Replace all "\" to "/" before running!
-path_to_data <- "//Groups/mol-grp/Anton/Data/sh29 data"
+path_to_data <- "Z://LAB DATA/GLS/SH29. CF7/raw_data/"
 path_to_save <- "Z://LAB DATA/GLS/SH29. CF7/plots/"
 experiment <- 'sh29'
 measurment_name <- 'DPM'
 this_method_time <- 69 # Set this to adjust hplc and measurments on graph
 output_format <- 'screen'
-minimum_gap_start <- 200
+minimum_gap_start <- 200 # This value means from what height gap should appear on the bars
 my_colors <- c('red', 'green', 'blue', 'grey', 'black')
 
 # This method for my samples. Replace by calling set_hplc_method function
@@ -33,20 +35,24 @@ method_dvlong8 <- data.frame (time=c(0, 9, 17, 40, 54, 58, 58.10, 61.9, 62, 69),
 hplc_method <- method_dvlong8
 use_gradient = TRUE # Set it to false and usual plots will be drown instead
 
+# Will use this variables, And if you want to change all graphs, just change properties here
+y_label <- 'A, 229 nm' 
+x_label <- 'time, min'
+
 # If we have standards that should be plot together, then we will use this list
+use_related_std = FALSE
 related_std <- list()
 related_std$std_4msob <- c('std_4mtb')
 related_std$std_sinalbin <- c('std_P-OH-Benzyle-cyanide')
 related_std$std_sinigrin <- c('std_allyl-ITC', 'std_allyl-cyanide')
-# And this flag as well
-use_related_std = TRUE
+
 # Flag for plotting error on the bars
 with_error_bars = FALSE
 
 # Load and install packages
 # Plotrix for graphs
 plot_package <- find.package ("plotrix", quiet = TRUE)
-if (nchar(plot_package) == 0) install.packages ("plotrix")
+if (length(plot_package) == 0) install.packages ("plotrix")
 require ('plotrix')
 
 analyze_working_folder <- function () {
@@ -76,7 +82,7 @@ start <- function () {
     draw_data ()
 }
 
-draw_related_standards <- function (combined_data, names='', xlab='time, min', ylab='A, 229nm') {
+draw_related_standards <- function (combined_data, names='', xlab=x_label, ylab=y_label) {
     # For all data.frames in the combined data we will plot a line. 
     # combined data is a list with elements we want to draw. Each 
     # element has two rows (one for time, another for measurment)
@@ -160,7 +166,7 @@ draw_chromatogram_with_ACN_gradient <- function (hplcX, hplcY, gradX, gradY,
     mtext ("Acetonitrile, %", side=4, line=0.5, cex=0.8)
 }
 
-draw_chromatogram <- function (x, y, title='', xlabel='', ylabel='', color='black', ...){
+draw_chromatogram <- function (x, y, title='', xlab='', ylab='', color='black', ...){
   # Draw a chromatogram based on dataFrame (time, signal)
   # Draw only positive signals
   plot (x, y,
@@ -168,8 +174,8 @@ draw_chromatogram <- function (x, y, title='', xlabel='', ylabel='', color='blac
         main = title,
         col=color,        
         #axes=FALSE,
-        ylab=ylabel,
-        xlab=xlabel, 
+        ylab=ylab,
+        xlab=xlab, 
         ...)  
 }
 
@@ -274,14 +280,14 @@ combine_data_and_plot <- function (sampleData, standardDataName,
       draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
                                           sampleData[[2]] * (sampleData[[2]]>0),
                                           hplc_method[[1]], hplc_method[[2]],
-                                          title=title, ylab="A, 229 nm", xlab=NA)
+                                          title=title, ylab=y_label, xlab=NA)
   }
   else {
       draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0), 
                      title=title,
                      axes=FALSE,
-                     xlabel='Time, min', 
-                     ylabel='A, 229nm', 
+                     xlab=x_label, 
+                     ylab=y_label, 
                      color='red')
     axis (side=2)
   }
@@ -323,7 +329,7 @@ combine_data_and_plot <- function (sampleData, standardDataName,
   else {
       draw_chromatogram (standardData[[1]], standardData[[2]] * (standardData[[2]]>0), 
                          #xlabel='Time, min',
-                         ylabel='A, 229nm', 
+                         ylab=y_label, 
                          color='blue',
                          axes=FALSE,
                          xlab='Time, min')
@@ -358,13 +364,13 @@ proceed_single_plot <- function (title, sampleData, fileType='screen'){
         draw_chromatogram_with_ACN_gradient(sampleData[[1]], 
                                             sampleData[[2]] * (sampleData[[2]]>0),
                                             hplc_method[[1]], hplc_method[[2]],
-                                            title=title, ylab="A, 229 nm", xlab='time, min')
+                                            title=title, ylab=y_label, xlab=x_label)
         
     }
     else {
         draw_chromatogram (sampleData[[1]], sampleData[[2]] * (sampleData[[2]]>0),
                            title=title, 
-                           xlabel='time, min', ylabel='A, 229nm', col='blue') 
+                           ylab=y_label, xlab=x_label, col='blue') 
     }
     
     if (device_on) dev.off()
@@ -485,7 +491,7 @@ draw_data <- function (to_format=output_format){
                         fileType=to_format)
         }
         else {
-          # It is single plot
+          # It is single plot, has experiment ID, but no other details were specified.
           proceed_single_plot (title=title, get(hplc_names[i], pos=1), fileType=to_format)
         }  
         
