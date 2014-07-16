@@ -11,9 +11,12 @@ init <- function () {
 start <- function () {
     # This function will start to work interactively with user
     # NOT COMPLETED
-    print ('Welcome! We will do all by ourself')
+    cat ('Welcome! We will do all by ourself\n')
+    cat (paste ("Analyze working folder - ", path_to_data,'\n'))
     analyze_working_folder()
+    cat ("Load data to the environment\n")
     load_data()
+    cat ("Draw data to the screen\n")
     draw_data ()
 }
 

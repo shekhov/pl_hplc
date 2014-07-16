@@ -132,7 +132,7 @@ create_gap <- function (dm) {
     
     max_id <- which.max (gaps)
     
-    # Check the first gap number. Should be more 200, wo we will have mostly
+    # Check the first gap number. Should be more 200 (depends on variable), wo we will have mostly
     # the same scale for bottom
     if (maxes[max_id]>minimum_gap_start) {
         min_gap <- maxes[max_id]
