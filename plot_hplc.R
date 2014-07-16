@@ -15,13 +15,16 @@
 
 # TODO: DONE! to use plotrix package. Install if has not yet and load if did not used
 # TODO: DONE! Figure out how to combine standards and lines
-# TODO: Separate modules for diferent files. Draw, data analyzis and settings at least should be
+# TODO: DONE! Separate modules for diferent files. Draw, data analyzis and settings at least should be
 # separated
 
 # Combine the project files together
-source('~/pl_hplc/settings.R')
-source('~/pl_hplc/tui.R')
-source('~/pl_hplc/plot_functions.R')
+
+source('settings.R')
+source('tui.R')
+source('data_analysis.R')
+source('plot_functions.R')
+
 
 # Load and install packages
 # Plotrix for graphs
@@ -45,25 +48,6 @@ analyze_working_folder <- function () {
     if (!exists ('hplc_std', where=1)) hplc_std <<- vector()
     if (!exists ('meas_names', where=1)) meas_names <<- vector()  
     if (!exists ('single_plots', where=1)) single_plots <<- vector() 
-}
-
-apply_statistic <- function (measurments, expand_raws=FALSE, length_to_expand=0){
-  # Returns new matrix with first column as mean and second column as standard deviation
-  # If we will need to expand the vector (so it will fit the chromatogram dimensions) the expand_raws 
-  # should be set on TRUE and the total number of rows should be determine
-  average <- apply (X=measurments, MARGIN=1, FUN=function(x) { mean (x, na.rm=TRUE)})
-  std_dev <- apply (X=measurments, MARGIN=1, FUN=function(x) { sd (x, na.rm=TRUE)})
-
-  error <- qnorm (0.975) * std_dev/sqrt(length(std_dev)) # Normal Distribution
-
-  new_data <- cbind (average, std_dev, error)
-  ncol <- dim (new_data)[2]
-  
-  if (expand_raws) {
-    expand_matrix <- matrix (data=0, nrow=length_to_expand - dim(new_data)[1], ncol=ncol)
-    new_data <- rbind (new_data, expand_matrix)
-  }
-  return (new_data)
 }
 
 # Load all data from folder to environment
